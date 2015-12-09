@@ -49,6 +49,7 @@ void ofApp::setup() {
     gui.add(captur.setup("captur)"));
     gui.add(colSld.setup("color",ofColor(255,255,255),ofColor(0,0),ofColor(255,255)));
     reset.addListener(this, &ofApp::presResetbutton);
+    gui.add(changeCol.setup("changeColor",0,0,3));
     gui.add(reset.setup("reset"));
     gui.add(reguner.setup("reguner",false));
     gui.add(mode.setup("mode",true));
@@ -234,9 +235,43 @@ unsigned char* ofApp::onAlpha(unsigned char *cp){
             for (int x = 0; x < camWidth-1; x++) {
                 ofColor c = img.getColor(x, y);
                 ofSetColor(c.r, c.g, c.b);
-                mp[(camWidth * y + x) * 4 + 2] = c.b;
-                mp[(camWidth * y + x) * 4 + 1] = c.g;
-                mp[(camWidth * y + x) * 4]     = c.r;
+                if(changeCol == 0){
+                    mp[(camWidth * y + x) * 4 + 2] = 255-c.b;
+                    mp[(camWidth * y + x) * 4 + 1] = 255-c.g;
+                    mp[(camWidth * y + x) * 4]     = 255-c.r;
+                }else{
+                    mp[(camWidth * y + x) * 4 + 2] = c.b;
+                    mp[(camWidth * y + x) * 4 + 1] = c.g;
+                    mp[(camWidth * y + x) * 4]     = c.r;
+                }
+                switch (changeCol) {
+                    case 0:
+                        mp[(camWidth * y + x) * 4 + 2] = c.b;
+                        mp[(camWidth * y + x) * 4 + 1] = c.g;
+                        mp[(camWidth * y + x) * 4]     = c.r;
+                        break;
+                        
+                    case 1:
+                        mp[(camWidth * y + x) * 4 + 2] = 255-c.b;
+                        mp[(camWidth * y + x) * 4 + 1] = 255-c.g;
+                        mp[(camWidth * y + x) * 4]     = 255-c.r;
+                        break;
+                        
+                    case 2:
+                        mp[(camWidth * y + x) * 4 + 2] = c.r;
+                        mp[(camWidth * y + x) * 4 + 1] = c.b;
+                        mp[(camWidth * y + x) * 4]     = c.g;
+                        break;
+                        
+                    case 3:
+                        mp[(camWidth * y + x) * 4 + 2] = c.g;
+                        mp[(camWidth * y + x) * 4 + 1] = c.r;
+                        mp[(camWidth * y + x) * 4]     = c.b;
+                        break;
+                        
+                    default:
+                        break;
+                }
                 mp[(camWidth * y + x) * 4 + 3] = 255;
                 //指定色を透過
                 for(int i = 0; i<COLNUM; i++){
@@ -274,6 +309,7 @@ void ofApp::drawCol(){
 void ofApp::drawCap(){
     int num = capNum;
     ofColor col = colSld;
+    
     for(int i=0; i<savemax; i++){
         num--;
         if(num < 0){num = savemax-1;}

@@ -85,6 +85,7 @@ public:
     int             drawId;
     int             threshold;
     float           randScale;
+    float           speed;
     ofPoint         randPos;
     
     ofxPanel        gui;
@@ -92,6 +93,7 @@ public:
     ofxIntSlider    saveSld;
     ofxIntSlider    threSld;
     ofxColorSlider  colSld;
+    ofxIntSlider    changeCol;
     ofxButton       random;
     ofxButton       reset;
     ofxButton       captur;
