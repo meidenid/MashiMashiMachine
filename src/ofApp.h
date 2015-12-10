@@ -42,6 +42,7 @@ public:
     //cap配列を描画(小さく５個並んでる奴)
     void drawSub();
     
+    //ランダムに選択した画像を描画
     void drawRandomCap();
     
     //ランダムな位置と大きさに描画
@@ -51,19 +52,23 @@ public:
     
     void presResetbutton();
     
+    void drawFlowCap();
+    
     
     ofImage  img;
     
     int capmax = 10;
     int savemax = 5;
-    static const int CAPMAX = 120;
+    static const int CAPMAX = 30;
     static const int SAVEMAX = 20;
     static const int COLNUM = 10;
+    static const int REGMAX = 50;
     ofVideoGrabber  vidGrabber;
     ofTexture       videoTexture;
     int             camWidth;
     int             camHeight;
     bool            capFlg;
+    bool            regularFlg;
     int             capCount;
     int             capNum;
     int             copyCapNum;
@@ -73,10 +78,15 @@ public:
     int             backPastNum;
     int             backPastCount;
     int             regularNum;
+    int             flowValue[SAVEMAX*CAPMAX];
+    int             regularRandNum[REGMAX];
     bool            clickFlg;
+    
+    bool            speedFlg;
     ofImage         cap[SAVEMAX][CAPMAX];
     ofImage         capDam[SAVEMAX][CAPMAX];
-    ofImage         capRegular[SAVEMAX][CAPMAX];
+    ofImage         capRegular[REGMAX][CAPMAX];
+    ofImage         capFlow[SAVEMAX*CAPMAX];
     ofImage         sato;
     ofColor         locusCol;
     ofColor         eraseColor[COLNUM];
@@ -85,13 +95,17 @@ public:
     int             drawId;
     int             threshold;
     float           randScale;
+    float           speedScale;
     ofPoint         randPos;
     
     ofxPanel        gui;
     ofxIntSlider    capSld;
     ofxIntSlider    saveSld;
     ofxIntSlider    threSld;
+    ofxIntSlider    regularSld;
+    ofxFloatSlider  speed;
     ofxColorSlider  colSld;
+    ofxIntSlider    changeCol;
     ofxButton       random;
     ofxButton       reset;
     ofxButton       captur;

@@ -24,6 +24,7 @@ void ofApp::setup() {
     regularNum      = 0;
     clickFlg        = true;
     threshold       = 30;
+    speedFlg        = 0;
     for(int i=0; i<COLNUM; i++){
         eraseColor[i] = ofColor(0,100+i*5,0);
         drawColor[i] = ofColor(0,0,0);
@@ -45,16 +46,20 @@ void ofApp::setup() {
     gui.add(capSld.setup("capmax", 10, 1, CAPMAX));
     gui.add(saveSld.setup("savemax", 5, 1, SAVEMAX));
     gui.add(threSld.setup("threshold",30,5,255));
+    gui.add(speed.setup("speeed",1,0.5,3));
+    gui.add(regularSld.setup("regularNum",1,0,10));
     gui.add(random.setup("random"));
-    gui.add(captur.setup("captur)"));
+    gui.add(captur.setup("captur"));
     gui.add(colSld.setup("color",ofColor(255,255,255),ofColor(0,0),ofColor(255,255)));
     reset.addListener(this, &ofApp::presResetbutton);
+    gui.add(changeCol.setup("changeColor",0,0,3));
     gui.add(reset.setup("reset"));
     gui.add(reguner.setup("reguner",false));
     gui.add(mode.setup("mode",true));
     gui.add(drawpast.setup("past",false));
     gui.add(drawpastBack.setup("pastBack",false));
     
+    //オプティカルフロぅ
     cv.setup();
     cv.add(pyrScale.setup("pyrScale",.5,0,1));
     cv.add(level.setup("level",4,1,8));
@@ -63,7 +68,7 @@ void ofApp::setup() {
     cv.add(polyN.setup("polyN",7,5,10));
     cv.add(polySigma.setup("polySigma",1.5,1.1,2));
     cv.add(OPTFLOW.setup("OPTFLOW",false));
-    cv.add(useFarneback.setup("useFarneback",true));
+    cv.add(useFarneback.setup("useFarneback",false));
     cv.add(winSize.setup("winSize",32,4,64));
     cv.add(maxLevel.setup("maxLevel",3,0,8));
     cv.add(level.setup("maxfeatures",200,2,1000));
@@ -79,7 +84,35 @@ void ofApp::setup() {
 //--------------------------------------------------------------
 void ofApp::update() {
     vidGrabber.update();
+    threshold = threSld;
     
+    //3秒ごとにregularNumの一部にcapを代入
+    if(ofGetSeconds() % 2 == 0 && regularFlg){
+        if(capNum == 0){
+            for(int i=0; i<capmax; i++){
+                capRegular[regularNum][i] = cap[savemax-1][i];
+            }
+        }else{
+            for(int i=0; i<capmax; i++){
+                capRegular[regularNum][i] = cap[capNum-1][i];
+            }
+        }
+        regularNum++;
+        //cout << regularNum << endl;
+        if(regularNum == REGMAX-1){regularNum = 0;}
+        
+        regularFlg = false;
+        
+        for(int i=0; i<regularSld; i++){
+            regularRandNum[i] = ofRandom(REGMAX);
+            //cout << i + regularRandNum[i] << endl;
+        }
+    }
+    if(ofGetSeconds() %3 == 1){regularFlg = true;}
+    
+    
+    //capturボタンが押されたらcapDamに現在の動画を代入
+    //drawPast,drawPastBackに使われる奴
     if(captur){
         for(int i=0; i< savemax; i++){
             for(int j=0; j<capmax; j++){
@@ -89,13 +122,13 @@ void ofApp::update() {
         copyCapCount    = capCount;
         pastCount       = capCount;
         backPastCount   = capCount;
-        
+    
         copyCapNum      = capNum;
         pastNum         = capNum;
         backPastNum     = capNum;
-    }
+        }
     
-    threshold = threSld;
+    //おぷてぃかるふろぅ
     if(vidGrabber.isFrameNew()){
         if(useFarneback){
             curFlow = &farneback;
@@ -125,17 +158,29 @@ void ofApp::draw() {
     ofVec2f flowAve = farneback.getAverageFlow()*20;
     ofVec2f  flowTotal = farneback.getTotalFlow();
     ofVec2f  flowH = farneback.getFlowOffset(0, 0);
+    vector<ofVec2f> pyrMotion = pyrLk.getMotion();
+    
+    ofVec2f pyrAve;
+    for(int i=0; i<pyrMotion.size(); i++){
+        pyrAve.x += pyrMotion[i].x;
+        pyrAve.y += pyrMotion[i].y;
+    }
+    pyrAve.x /= pyrMotion.size() * 10;
+    pyrAve.y /= pyrMotion.size() * 10;
     
     ofEnableAlphaBlending();
     //最初初期化してないの描画してるかも
     //img.draw(0,0);
     
+    //動体の情報
     unsigned char* cp = vidGrabber.getPixels();
     img.setFromPixels(cp,camWidth,camHeight,OF_IMAGE_COLOR);
+    flowValue[capNum*capmax + capCount] = pyrAve.x+pyrAve.y;
     
     //透過した奴をcap配列(分身)に代入
     //cout << capNum << endl;
     cap[capNum][capCount].setFromPixels(onAlpha(cp), camWidth, camHeight, OF_IMAGE_COLOR_ALPHA);
+    capFlow[capNum*capmax + capCount] = cap[capNum][capCount];
     
     if(mode){drawCap();}
     if(!mode){drawLocus();}
@@ -145,12 +190,32 @@ void ofApp::draw() {
     if(drawpastBack){drawPastBack();}
     if(reguner){drawRegular();}
     drawRandom();
+    drawFlowCap();
     ofSetColor(colSld);
     cap[capNum][capCount].draw(0,0);
     
     capCount++;
+    
+    //速度変化 1.5倍速の挙動がおかしい。
+    if(speedScale == 2){
+        capCount++;
+        pastCount++;
+        backPastCount--;
+    }else if(speedScale == 3){
+        capCount+=2;
+        pastCount+=2;
+        backPastCount-=2;
+    }else if(speedScale == 0.5){
+        if(speedFlg){
+            capCount--;
+            pastCount--;
+            backPastCount++;
+        }
+        speedFlg = !speedFlg;
+    }
+    
     //capmaxフレームごとに次のバッファへ。
-    if(capCount == capmax) {
+    if(capCount >= capmax) {
         if(capNum == savemax-1){
             capNum = 0;
         }else{
@@ -158,8 +223,9 @@ void ofApp::draw() {
         }
         capCount = 0;
     }
+    
     //ofDisableAlphaBlending();
-
+    
     curFlow -> draw(0,0,camWidth,camHeight);
     gui.setPosition(700, 10);
     cv.setPosition(1050, 10);
@@ -179,6 +245,22 @@ void ofApp::keyPressed(int key) {
 
 //--------------------------------------------------------------
 void ofApp::keyReleased(int key) {
+
+    if(key == 's'){
+        speedScale = speed;
+        if(speedScale < 0.75){
+            speedScale=0.5;
+        }else if (speedScale < 1.5){
+            speedScale = 1;
+        }else if(speedScale < 2.5){
+            speedScale = 2;
+        }else if(speedScale < 3){
+            speedScale = 3;
+        }
+    }
+    
+    if(key == 'c'){
+    }
     
 }
 
@@ -204,6 +286,7 @@ void ofApp::mousePressed(int x, int y, int button) {
         drawColor[drawId] = img.getColor(x,y);
         drawId++;
     }
+    
 }
 
 //--------------------------------------------------------------
@@ -236,9 +319,34 @@ unsigned char* ofApp::onAlpha(unsigned char *cp){
             for (int x = 0; x < camWidth-1; x++) {
                 ofColor c = img.getColor(x, y);
                 ofSetColor(c.r, c.g, c.b);
-                mp[(camWidth * y + x) * 4 + 2] = c.b;
-                mp[(camWidth * y + x) * 4 + 1] = c.g;
-                mp[(camWidth * y + x) * 4]     = c.r;
+                switch (changeCol) {
+                    case 0:
+                        mp[(camWidth * y + x) * 4 + 2] = c.b;
+                        mp[(camWidth * y + x) * 4 + 1] = c.g;
+                        mp[(camWidth * y + x) * 4]     = c.r;
+                        break;
+                        
+                    case 1:
+                        mp[(camWidth * y + x) * 4 + 2] = 255-c.b;
+                        mp[(camWidth * y + x) * 4 + 1] = 255-c.g;
+                        mp[(camWidth * y + x) * 4]     = 255-c.r;
+                        break;
+                        
+                    case 2:
+                        mp[(camWidth * y + x) * 4 + 2] = c.r;
+                        mp[(camWidth * y + x) * 4 + 1] = c.b;
+                        mp[(camWidth * y + x) * 4]     = c.g;
+                        break;
+                        
+                    case 3:
+                        mp[(camWidth * y + x) * 4 + 2] = c.g;
+                        mp[(camWidth * y + x) * 4 + 1] = c.r;
+                        mp[(camWidth * y + x) * 4]     = c.b;
+                        break;
+                        
+                    default:
+                        break;
+                }
                 mp[(camWidth * y + x) * 4 + 3] = 255;
                 //指定色を透過
                 for(int i = 0; i<COLNUM; i++){
@@ -276,6 +384,7 @@ void ofApp::drawCol(){
 void ofApp::drawCap(){
     int num = capNum;
     ofColor col = colSld;
+    
     for(int i=0; i<savemax; i++){
         num--;
         if(num < 0){num = savemax-1;}
@@ -291,7 +400,7 @@ void ofApp::drawPastBack(){
     ofSetColor(colSld);
     
     backPastCount--;
-    if(backPastCount == -1){
+    if(backPastCount <= -1){
         backPastCount = capmax-1;
         
         if(backPastNum == 0){
@@ -310,9 +419,10 @@ void ofApp::drawPast(){
     if(capDam[pastNum][pastCount].bAllocated()){
         capDam[pastNum][pastCount].draw(camWidth,0);
         pastCount++;
+    }else if(pastCount >= capmax){
+        capDam[pastNum][capmax-1].draw(camWidth, 0);
     }
-    
-    if(pastCount == capmax){
+    if(pastCount >= capmax){
         pastCount = 0;
         if(pastNum == savemax-1){
             pastNum = 0;
@@ -367,16 +477,11 @@ void ofApp::drawRandomCap(){
 }
 
 void ofApp::drawRegular(){
-    //5秒ごとに更新。
-    if(ofGetSeconds() % 5 == 0){
-        for(int i=0; i<CAPMAX; i++){
-            capRegular[regularNum][i] = cap[capNum][capCount];
+    
+    for(int i=0; i<regularSld; i++){
+        if(capRegular[regularRandNum[i]][capCount].bAllocated()){
+            capRegular[regularRandNum[i]][capCount].draw(0,camHeight);
         }
-        regularNum++;
-        if(regularNum == SAVEMAX){regularNum = 0;}
-    }
-    if(capRegular[regularNum][capCount].bAllocated()){
-        capRegular[regularNum][capCount].draw(0,0);
     }
 }
 
@@ -388,6 +493,8 @@ void ofApp::presResetbutton(){
         for(int i=0; i<SAVEMAX; i++){
             for(int j=0; j<CAPMAX; j++){
                 cap[i][j].clear();
+                capDam[i][j].clear();
+                capRegular[i][j].clear();
             }
         }
         savemax = saveSld;
@@ -406,4 +513,8 @@ void ofApp::presResetbutton(){
         threshold       = 30;
     }
 
+}
+
+void ofApp::drawFlowCap(){
+    capFlow[capNum*capmax + capCount].draw(camWidth,camHeight);
 }
