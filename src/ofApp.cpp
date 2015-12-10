@@ -227,14 +227,16 @@ void ofApp::draw() {
     //ofDisableAlphaBlending();
     
     curFlow -> draw(0,0,camWidth,camHeight);
+    gui.setPosition(700, 10);
+    cv.setPosition(1050, 10);
     gui.draw();
     cv.draw();
     
-    ofDrawBitmapStringHighlight("flowAve" + ofToString(flowAve), 20, 30);
-    ofDrawBitmapStringHighlight("pyrAve"+ ofToString(pyrAve), 20, 60);
-    ofDrawBitmapStringHighlight("sec_" + ofToString(sec), 20,10);
-    ofDrawBitmapStringHighlight("total"+ ofToString(flowTotal), 20, 80);
-    ofDrawBitmapStringHighlight("speed"+ ofToString(speedScale),20,100);
+    ofDrawBitmapStringHighlight("sec: " + ofToString(sec), 20,20);
+    ofDrawBitmapStringHighlight("pyrAve: "+ ofToString(pyrAve), 20, 40);
+    ofDrawBitmapStringHighlight("Height: " + ofToString(flowH), 20, 70);
+    ofDrawBitmapStringHighlight("total: " + ofToString(flowTotal), 20, 90);
+    ofDrawBitmapStringHighlight("speed: "+ ofToString(speedScale),20,110);
 }
 
 //--------------------------------------------------------------

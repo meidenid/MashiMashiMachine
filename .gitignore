@@ -2,3 +2,6 @@
 *.xccheckout
 
 *.xcuserstate
+*.plist
+
+*.xcworkspacedata
