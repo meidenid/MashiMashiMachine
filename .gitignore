@@ -138,8 +138,8 @@ Desktop.ini
 #########################
 
 # ignore bin folders' contents, except data folder therein
-/bin/*
-!/bin/data/
+bin/*
+!bin/data/
 
 .cproject
 .project
