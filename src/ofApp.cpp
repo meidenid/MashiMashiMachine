@@ -165,8 +165,8 @@ void ofApp::draw() {
         pyrAve.x += pyrMotion[i].x;
         pyrAve.y += pyrMotion[i].y;
     }
-    pyrAve.x /= pyrMotion.size() * 10;
-    pyrAve.y /= pyrMotion.size() * 10;
+    pyrAve.x /= pyrMotion.size() ;
+    pyrAve.y /= pyrMotion.size() ;
     
     ofEnableAlphaBlending();
     //最初初期化してないの描画してるかも
@@ -515,5 +515,15 @@ void ofApp::presResetbutton(){
 }
 
 void ofApp::drawFlowCap(){
-    capFlow[capNum*capmax + capCount].draw(camWidth,camHeight);
+
+    int flame = capNum*capmax + capCount;
+    int beforeFlame = flame-1;
+    if(beforeFlame == -1){beforeFlame = savemax*capmax;}
+    
+    
+    if( abs(abs(flowValue[beforeFlame]) - abs(flowValue[flame])) > 0.05){
+        //capFlow[]
+        capFlow[flame].draw(camWidth,camHeight);
+    }
+    
 }
