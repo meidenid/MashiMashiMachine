@@ -233,9 +233,10 @@ void ofApp::draw() {
     cv.draw();
     
     ofDrawBitmapStringHighlight("sec: " + ofToString(sec), 20,20);
-    ofDrawBitmapStringHighlight("flowAve: " + ofToString(flowAve), 20, 40);
+    ofDrawBitmapStringHighlight("pyrAve: "+ ofToString(pyrAve), 20, 40);
     ofDrawBitmapStringHighlight("Height: " + ofToString(flowH), 20, 70);
     ofDrawBitmapStringHighlight("total: " + ofToString(flowTotal), 20, 90);
+    ofDrawBitmapStringHighlight("speed: "+ ofToString(speedScale),20,110);
 }
 
 //--------------------------------------------------------------
