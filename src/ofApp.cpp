@@ -73,6 +73,8 @@ void ofApp::setup() {
     gui.add(mode.setup("mode",true));
     gui.add(drawpast.setup("past",false));
     gui.add(drawpastBack.setup("pastBack",false));
+    gui.add(coutourThresholded.setup("coutourThresholdedSlider", 20, 1, 255));
+    gui.add(contourMinArea.setup("contourMinArea", 4000, 0, 10000));
     
     //オプティカルフロぅ
     cv.setup();
@@ -95,8 +97,20 @@ void ofApp::setup() {
     
     //http://www.slideshare.net/tado/media-art-ii-2013-6openframeworks-addon-2-ofxopencv-ofxcv
     
-    isCapFlowFilled = true;
     
+    isCapFlowFilled = true;
+
+    /* ========================
+     *  背景差分するよ
+     * ======================*/
+    if (bLearnBakground == true){
+        bgImage.setFromPixels(vidGrabber.getPixels(), camWidth, camHeight, OF_IMAGE_COLOR);
+        bLearnBakground = false;
+    }
+    imitate(prevDiffImg, vidGrabber);
+    imitate(diffImg, vidGrabber);
+    diffGrayImg.allocate(vidGrabber.getWidth(), vidGrabber.getHeight());
+
 }
 
 //--------------------------------------------------------------
@@ -184,6 +198,8 @@ void ofApp::draw() {
     pyrAve.y /= pyrMotion.size() ;
     flowAve = abs(pyrAve.x) + abs(pyrAve.y);
     
+    
+    
     ofEnableAlphaBlending();
     //最初初期化してないの描画してるかも
     //img.draw(0,0);
@@ -260,10 +276,12 @@ void ofApp::draw() {
     }
     
     //ofDisableAlphaBlending();
+    bgSubtraction();
+    drawEffect();
     
     curFlow -> draw(0,0,camWidth,camHeight);
-    gui.setPosition(700, 10);
-    cv.setPosition(1050, 10);
+    gui.setPosition(camWidth * 2 + 10, 10);
+    cv.setPosition(camWidth * 2 + 10, camHeight);
     gui.draw();
     cv.draw();
     
@@ -522,6 +540,63 @@ void ofApp::drawRegular(){
     }
 }
 
+/**
+ *  背景差分するよ
+ *
+ */
+void ofApp::bgSubtraction() {
+    
+    if(vidGrabber.isFrameNew()){
+        absdiff(prevDiffImg, vidGrabber, diffImg);
+        diffImg.update();
+        
+        copy(vidGrabber, prevDiffImg);
+        
+        diffMean = mean(toCv(diffImg));
+        diffMean *= Scalar(50);
+    };
+    
+    
+    myContourFinder.setThreshold(coutourThresholded);
+    myContourFinder.setMinArea(contourMinArea);
+    myContourFinder.setFindHoles(true);
+    myContourFinder.setSortBySize(true);
+    
+    myContourFinder.findContours(diffImg);
+    
+    diffColorImg.setFromPixels(diffImg.getPixels(), diffImg.getWidth(), diffImg.getHeight());
+    diffGrayImg = diffColorImg;
+    
+    diffGrayImg.draw(camWidth, 0);
+    
+    //draw
+    ofTranslate(camWidth, 0);
+    myContourFinder.draw();
+    
+    int numPerticle = 1;
+    
+    for (int i = 0; i < numPerticle; i++){
+        if(myContourFinder.size() <= 0) { // or動きが少ない時
+            break;
+        }
+        cv::Point2f drawpoint = myContourFinder.getCenter(i);
+        ofSetColor(255, 0, 0);
+        ofCircle(drawpoint.x, drawpoint.y, 10);
+    }
+    
+    ofColor(255);
+    ofTranslate(-camWidth, 0);
+    
+}
+/**
+ * エフェクトかけるよ
+ *
+ */
+void ofApp::drawEffect() {
+    
+    
+}
+
 void ofApp::presResetbutton(){
     for(int i=0; i<COLNUM; i++){
         eraseColor[i] = ofColor(0,100+i*5,0);
@@ -534,8 +609,8 @@ void ofApp::presResetbutton(){
                 capRegular[i][j].clear();
             }
         }
-        savemax = saveSld;
-        capmax = capSld;
+        savemax         = saveSld;
+        capmax          = capSld;
         capCount        = 0;
         capNum          = 0;
         eraseId         = 0;
