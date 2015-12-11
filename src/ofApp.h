@@ -79,8 +79,13 @@ public:
     int             backPastCount;
     int             regularNum;
     int             flowValue[SAVEMAX*CAPMAX];
+    bool            flowDrawflg[SAVEMAX*CAPMAX];
     int             regularRandNum[REGMAX];
+    int             flowWaitFlame;
     bool            clickFlg;
+    float           flowAve;
+    
+    bool            isCapFlowFilled;
     
     bool            speedFlg;
     ofImage         cap[SAVEMAX][CAPMAX];

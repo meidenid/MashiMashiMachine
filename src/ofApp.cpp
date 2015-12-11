@@ -25,6 +25,9 @@ void ofApp::setup() {
     clickFlg        = true;
     threshold       = 30;
     speedFlg        = 0;
+    flowAve         = 0;
+    speedScale      = 1;
+    flowWaitFlame   = 500;
     for(int i=0; i<COLNUM; i++){
         eraseColor[i] = ofColor(0,100+i*5,0);
         drawColor[i] = ofColor(0,0,0);
@@ -79,6 +82,8 @@ void ofApp::setup() {
 
     
     //http://www.slideshare.net/tado/media-art-ii-2013-6openframeworks-addon-2-ofxopencv-ofxcv
+    
+    isCapFlowFilled = true;
 }
 
 //--------------------------------------------------------------
@@ -155,9 +160,7 @@ void ofApp::update() {
 void ofApp::draw() {
 
     int sec = ofGetSeconds();
-    ofVec2f flowAve = farneback.getAverageFlow()*20;
-    ofVec2f  flowTotal = farneback.getTotalFlow();
-    ofVec2f  flowH = farneback.getFlowOffset(0, 0);
+
     vector<ofVec2f> pyrMotion = pyrLk.getMotion();
     
     ofVec2f pyrAve;
@@ -167,6 +170,7 @@ void ofApp::draw() {
     }
     pyrAve.x /= pyrMotion.size() ;
     pyrAve.y /= pyrMotion.size() ;
+    flowAve = pyrAve.x + pyrAve.y;
     
     ofEnableAlphaBlending();
     //最初初期化してないの描画してるかも
@@ -175,17 +179,35 @@ void ofApp::draw() {
     //動体の情報
     unsigned char* cp = vidGrabber.getPixels();
     img.setFromPixels(cp,camWidth,camHeight,OF_IMAGE_COLOR);
-    flowValue[capNum*capmax + capCount] = pyrAve.x+pyrAve.y;
     
     //透過した奴をcap配列(分身)に代入
     //cout << capNum << endl;
     cap[capNum][capCount].setFromPixels(onAlpha(cp), camWidth, camHeight, OF_IMAGE_COLOR_ALPHA);
-    capFlow[capNum*capmax + capCount] = cap[capNum][capCount];
+//    capFlow[capNum*capmax + capCount] = cap[capNum][capCount];
+
+    if (isCapFlowFilled) {
+        for (int i; i < SAVEMAX * CAPMAX; i++) {
+            capFlow[i] = cap[capNum][capCount];
+            flowValue[i] = abs(pyrAve.x)+abs(pyrAve.y);
+            isCapFlowFilled = false;
+        }
+    }
+    
+    for(int i=0; i < savemax * capmax; i++){
+        if (i == savemax * capmax-1) {
+            capFlow[i] = cap[capNum][capCount];
+            flowValue[i] = abs(pyrAve.x)+abs(pyrAve.y);
+        } else {
+            capFlow[i] = capFlow[i+1];
+            flowValue[i] = flowValue[i+1];
+        }
+    }
+
     
     if(mode){drawCap();}
     if(!mode){drawLocus();}
     drawCol();
-    drawSub();
+    //drawSub();
     if(drawpast){drawPast();}
     if(drawpastBack){drawPastBack();}
     if(reguner){drawRegular();}
@@ -232,11 +254,12 @@ void ofApp::draw() {
     gui.draw();
     cv.draw();
     
+    float fps = ofGetFrameRate();
     ofDrawBitmapStringHighlight("sec: " + ofToString(sec), 20,20);
     ofDrawBitmapStringHighlight("pyrAve: "+ ofToString(pyrAve), 20, 40);
-    ofDrawBitmapStringHighlight("Height: " + ofToString(flowH), 20, 70);
-    ofDrawBitmapStringHighlight("total: " + ofToString(flowTotal), 20, 90);
-    ofDrawBitmapStringHighlight("speed: "+ ofToString(speedScale),20,110);
+    ofDrawBitmapStringHighlight("flowAve: "+ ofToString(flowAve), 20, 60);
+    ofDrawBitmapStringHighlight("flowValue: "+ ofToString(flowValue[capNum*capmax + capCount]), 20, 80);
+    ofDrawBitmapStringHighlight("speed: "+ ofToString(speedScale),20,100);
 }
 
 //--------------------------------------------------------------
@@ -517,15 +540,135 @@ void ofApp::presResetbutton(){
 }
 
 void ofApp::drawFlowCap(){
-
+    
     int flame = capNum*capmax + capCount;
-    int beforeFlame = flame-1;
-    if(beforeFlame == -1){beforeFlame = savemax*capmax;}
+    int flameMax = savemax*capmax;
+    
+    ofSetColor(255);
     
     
-    if( abs(abs(flowValue[beforeFlame]) - abs(flowValue[flame])) > 0.05){
-        //capFlow[]
-        capFlow[flame].draw(camWidth,camHeight);
+    
+    for(int i=0; i<flameMax; i++){
+        if(flowValue[i] > 8){
+            if(capFlow[i].bAllocated()){
+                ofSetColor(255,255,255,ofMap(i, 0, flameMax, 0, 255));
+                capFlow[i].draw(0,0);
+            }
+        }
     }
     
+    
+    
+//    for(int i=0; i<flameMax; i++){
+//        if(flowDrawflg[i]){flowDrawflg[i] = false;}
+//        
+//        if(flowWaitFlame <= 0 || (flowWaitFlame > 10 && flowValue[i] > 5)){
+//            //描画したら待ち時間増加
+//            //動きの小さい時に待ち時間多く、大きい時に待ち時間少なく
+//            if(abs(flowValue[i]) > 5){
+//                flowWaitFlame+= 5;
+//            }else if(abs(flowValue[i]) > 3){
+//                flowWaitFlame += 10;
+//            }else if(abs(flowValue[i]) >= 0){
+//                flowWaitFlame += 20;
+//            }
+//            
+//            flowDrawflg[i] = true;
+//        }
+//        ofDrawBitmapStringHighlight("waitFlame" + ofToString(flowWaitFlame), 0, camHeight+20);
+//        flowWaitFlame--;
+//    }
+//    
+//    
+//    for(int k=0; k<flameMax; k++){
+//    
+//        if(flowDrawflg[k]){
+//            if(capFlow[k].bAllocated()){
+//                    capFlow[k].draw(0,camHeight);
+//                    //cout << flame+k <<endl;
+//               }
+//        }
+//    }
+    
+    
+//    if(flameMax - flowValue[flameMax-1] >= 0){
+//        for (int i = flameMax - flowValue[flameMax-1]; i <= flameMax; i++) {
+//            if(capFlow[i-1].bAllocated()){
+//                capFlow[i-1].draw(0,camHeight);
+//            }
+//        }
+//        cout << flameMax - flowValue[flameMax-1] << endl;
+//    }
+//    
+    for(int i=0; i<flameMax; i++){
+    
+    
+    
+    
+//        if(i + capCount >= flameMax){
+//            capFlow[].draw(camWidth,camHeight);
+//            i+=3;
+//        }else {
+//            capFlow[i +capCount].draw(camWidth,camHeight);
+//            i+=3;
+//        }
+
+//        if(flowValue[i] > 7){
+//            i+=1;
+//        }else if(flowValue[i] > 5){
+//            i+=3;
+//        }else if (flowValue[i] > 3){
+//            i += 5;
+//        }else if(flowValue[i] > 1){
+//            i += 8;
+//        }else{i += 10;}
+
+//        if(capFlow[i].bAllocated()){
+//            capFlow[i].draw(0,camHeight);
+//        }
+//
+//        i += 15 - flowValue[flameMax-1];
+//    
+
+    
+//        if(abs(flowValue[i]) > 7){
+//            if(i + capCount >= flameMax){
+//                capFlow[i+capCount-flameMax].draw(camWidth,camHeight);
+//                i+=3;
+//            }else {
+//                capFlow[i +capCount].draw(camWidth,camHeight);
+//                i+=3;
+//            }
+//        }
+//        
+//        else if(abs(flowValue[i]) > 5){
+//            if(i + capCount >= flameMax){
+//                capFlow[i+capCount-flameMax].draw(camWidth,camHeight);
+//                i+=5;
+//            }else {
+//                capFlow[i +capCount].draw(camWidth,camHeight);
+//                i+=5;
+//            }
+//        }
+//        
+//        else if(abs(flowValue[i]) > 3){
+//            if(i + capCount >= flameMax){
+//                capFlow[i+capCount-flameMax].draw(camWidth,camHeight);
+//                i+=10;
+//            }else {
+//                capFlow[i +capCount].draw(camWidth,camHeight);
+//                i+=10;
+//            }
+//        }
+//        
+//        else if(abs(flowValue[i]) >= 0){
+//            if(i + capCount >= flameMax){
+//                capFlow[i+capCount-flameMax].draw(camWidth,camHeight);
+//                i+=20;
+//            }else {
+//                capFlow[i +capCount].draw(camWidth,camHeight);
+//                i+=20;
+//            }
+//        }
+    }
 }
