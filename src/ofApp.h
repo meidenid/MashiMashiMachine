@@ -3,6 +3,7 @@
 #include "ofMain.h"
 #include "ofxGui.h"
 #include "ofxCv.h"
+#include "ofxOpenCv.h"
 
 using namespace ofxCv;
 using namespace cv;
@@ -53,6 +54,12 @@ public:
     void presResetbutton();
     
     void drawFlowCap();
+
+    //えふぇくつ
+    void drawEffect();
+
+    //背景差分
+    void bgSubtraction();
     
     
     ofImage  img;
@@ -62,7 +69,7 @@ public:
     static const int CAPMAX = 30;
     static const int SAVEMAX = 20;
     static const int COLNUM = 10;
-    static const int REGMAX = 50;
+    static const int REGMAX = 30;
     ofVideoGrabber  vidGrabber;
     ofTexture       videoTexture;
     int             camWidth;
@@ -79,8 +86,13 @@ public:
     int             backPastCount;
     int             regularNum;
     int             flowValue[SAVEMAX*CAPMAX];
+    bool            flowDrawflg[SAVEMAX*CAPMAX];
     int             regularRandNum[REGMAX];
+    int             flowWaitFlame;
     bool            clickFlg;
+    float           flowAve;
+    
+    bool            isCapFlowFilled;
     
     bool            speedFlg;
     ofImage         cap[SAVEMAX][CAPMAX];
@@ -98,6 +110,20 @@ public:
     float           speedScale;
     ofPoint         randPos;
     
+    //はいけいさぶん
+    bool            bLearnBakground;
+    ofImage         bgImage;
+    ofImage         prevDiffImg;
+    ofImage         diffImg;
+    ofxCvGrayscaleImage diffGrayImg;
+    ofxCvColorImage     diffColorImg;
+    cv::Scalar      diffMean;
+    
+    //Effect
+    ofxCv::ContourFinder myContourFinder;
+    ofxCvContourFinder myCountourFinder2;
+
+    
     ofxPanel        gui;
     ofxIntSlider    capSld;
     ofxIntSlider    saveSld;
@@ -113,7 +139,10 @@ public:
     ofxToggle       drawpast;
     ofxToggle       drawpastBack;
     ofxToggle       mode;
-    
+    ofPoint         particle[100];
+    ofColor         particleCol[100];
+    ofPoint         particleVec[100];
+    ofVec2f         pyrAve;
     
     ofxPanel        cv;
     ofxFloatSlider  pyrScale;
@@ -124,12 +153,15 @@ public:
     ofxFloatSlider  polySigma;
     ofxIntSlider    winSize;
     ofxIntSlider    maxLevel;
+    ofxIntSlider    coutourThresholded;
+    ofxIntSlider    contourMinArea;
     ofxFloatSlider  maxFeatures;
     ofxFloatSlider  qualityLevel;
     ofxFloatSlider  minDistance;
     
     ofxToggle       OPTFLOW;
     ofxToggle       useFarneback;
+    
     
     
     ofxCv::ContourFinder contourFinder;

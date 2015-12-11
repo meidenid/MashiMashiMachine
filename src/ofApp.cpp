@@ -25,10 +25,25 @@ void ofApp::setup() {
     clickFlg        = true;
     threshold       = 30;
     speedFlg        = 0;
+    flowAve         = 0;
+    speedScale      = 1;
+    flowWaitFlame   = 500;
     for(int i=0; i<COLNUM; i++){
         eraseColor[i] = ofColor(0,100+i*5,0);
         drawColor[i] = ofColor(0,0,0);
     }
+    for(int i=0; i<100; i++){
+        particle[i].x = camWidth/2;
+        particle[i].y = camHeight/2;
+        particle[i].z = ofRandom(1,10);
+        
+        particleVec[i].x = ofRandom(-20, 20);
+        particleVec[i].y = ofRandom(-20, 20);
+        
+        particleCol[i].set(ofRandom(250), ofRandom(250), ofRandom(250));
+        cout << particleVec[0].x << endl;
+    }
+
     capNum = 0;
     // cap.allocate(camWidth, camHeight, OF_IMAGE_COLOR_ALPHA);
     
@@ -58,6 +73,8 @@ void ofApp::setup() {
     gui.add(mode.setup("mode",true));
     gui.add(drawpast.setup("past",false));
     gui.add(drawpastBack.setup("pastBack",false));
+    gui.add(coutourThresholded.setup("coutourThresholdedSlider", 20, 1, 255));
+    gui.add(contourMinArea.setup("contourMinArea", 4000, 0, 10000));
     
     //オプティカルフロぅ
     cv.setup();
@@ -79,6 +96,21 @@ void ofApp::setup() {
 
     
     //http://www.slideshare.net/tado/media-art-ii-2013-6openframeworks-addon-2-ofxopencv-ofxcv
+    
+    
+    isCapFlowFilled = true;
+
+    /* ========================
+     *  背景差分するよ
+     * ======================*/
+    if (bLearnBakground == true){
+        bgImage.setFromPixels(vidGrabber.getPixels(), camWidth, camHeight, OF_IMAGE_COLOR);
+        bLearnBakground = false;
+    }
+    imitate(prevDiffImg, vidGrabber);
+    imitate(diffImg, vidGrabber);
+    diffGrayImg.allocate(vidGrabber.getWidth(), vidGrabber.getHeight());
+
 }
 
 //--------------------------------------------------------------
@@ -87,7 +119,7 @@ void ofApp::update() {
     threshold = threSld;
     
     //3秒ごとにregularNumの一部にcapを代入
-    if(ofGetSeconds() % 2 == 0 && regularFlg){
+    if(ofGetSeconds() % 3 == 0 && regularFlg){
         if(capNum == 0){
             for(int i=0; i<capmax; i++){
                 capRegular[regularNum][i] = cap[savemax-1][i];
@@ -105,7 +137,6 @@ void ofApp::update() {
         
         for(int i=0; i<regularSld; i++){
             regularRandNum[i] = ofRandom(REGMAX);
-            //cout << i + regularRandNum[i] << endl;
         }
     }
     if(ofGetSeconds() %3 == 1){regularFlg = true;}
@@ -155,9 +186,7 @@ void ofApp::update() {
 void ofApp::draw() {
 
     int sec = ofGetSeconds();
-    ofVec2f flowAve = farneback.getAverageFlow()*20;
-    ofVec2f  flowTotal = farneback.getTotalFlow();
-    ofVec2f  flowH = farneback.getFlowOffset(0, 0);
+
     vector<ofVec2f> pyrMotion = pyrLk.getMotion();
     
     ofVec2f pyrAve;
@@ -165,8 +194,11 @@ void ofApp::draw() {
         pyrAve.x += pyrMotion[i].x;
         pyrAve.y += pyrMotion[i].y;
     }
-    pyrAve.x /= pyrMotion.size() * 10;
-    pyrAve.y /= pyrMotion.size() * 10;
+    pyrAve.x /= pyrMotion.size() ;
+    pyrAve.y /= pyrMotion.size() ;
+    flowAve = abs(pyrAve.x) + abs(pyrAve.y);
+    
+    
     
     ofEnableAlphaBlending();
     //最初初期化してないの描画してるかも
@@ -175,13 +207,31 @@ void ofApp::draw() {
     //動体の情報
     unsigned char* cp = vidGrabber.getPixels();
     img.setFromPixels(cp,camWidth,camHeight,OF_IMAGE_COLOR);
-    flowValue[capNum*capmax + capCount] = pyrAve.x+pyrAve.y;
     
     //透過した奴をcap配列(分身)に代入
     //cout << capNum << endl;
     cap[capNum][capCount].setFromPixels(onAlpha(cp), camWidth, camHeight, OF_IMAGE_COLOR_ALPHA);
-    capFlow[capNum*capmax + capCount] = cap[capNum][capCount];
+//    capFlow[capNum*capmax + capCount] = cap[capNum][capCount];
+
+    if (isCapFlowFilled) {
+        for (int i; i < SAVEMAX * CAPMAX; i++) {
+            capFlow[i] = cap[capNum][capCount];
+            flowValue[i] = abs(pyrAve.x)+abs(pyrAve.y);
+            isCapFlowFilled = false;
+        }
+    }
     
+    for(int i=0; i < savemax * capmax; i++){
+        if (i == savemax * capmax-1) {
+            capFlow[i] = cap[capNum][capCount];
+            flowValue[i] = abs(pyrAve.x)+abs(pyrAve.y);
+        } else {
+            capFlow[i] = capFlow[i+1];
+            flowValue[i] = flowValue[i+1];
+        }
+    }
+
+    drawEffect();
     if(mode){drawCap();}
     if(!mode){drawLocus();}
     drawCol();
@@ -190,6 +240,7 @@ void ofApp::draw() {
     if(drawpastBack){drawPastBack();}
     if(reguner){drawRegular();}
     drawRandom();
+    
     drawFlowCap();
     ofSetColor(colSld);
     cap[capNum][capCount].draw(0,0);
@@ -225,18 +276,21 @@ void ofApp::draw() {
     }
     
     //ofDisableAlphaBlending();
+    bgSubtraction();
+    drawEffect();
     
     curFlow -> draw(0,0,camWidth,camHeight);
-    gui.setPosition(700, 10);
-    cv.setPosition(1050, 10);
+    gui.setPosition(camWidth * 2 + 10, 10);
+    cv.setPosition(camWidth * 2 + 10, camHeight);
     gui.draw();
     cv.draw();
     
+    float fps = ofGetFrameRate();
     ofDrawBitmapStringHighlight("sec: " + ofToString(sec), 20,20);
     ofDrawBitmapStringHighlight("pyrAve: "+ ofToString(pyrAve), 20, 40);
-    ofDrawBitmapStringHighlight("Height: " + ofToString(flowH), 20, 70);
-    ofDrawBitmapStringHighlight("total: " + ofToString(flowTotal), 20, 90);
-    ofDrawBitmapStringHighlight("speed: "+ ofToString(speedScale),20,110);
+    ofDrawBitmapStringHighlight("flowAve: "+ ofToString(flowAve), 20, 60);
+    ofDrawBitmapStringHighlight("flowValue: "+ ofToString(flowValue[capNum*capmax + capCount]), 20, 80);
+    ofDrawBitmapStringHighlight("speed: "+ ofToString(speedScale),20,100);
 }
 
 //--------------------------------------------------------------
@@ -478,13 +532,70 @@ void ofApp::drawRandomCap(){
 }
 
 void ofApp::drawRegular(){
-    
+    ofSetColor(255);
     for(int i=0; i<regularSld; i++){
         if(capRegular[regularRandNum[i]][capCount].bAllocated()){
             capRegular[regularRandNum[i]][capCount].draw(0,camHeight);
         }
     }
 }
+
+/**
+ *  背景差分するよ
+ *
+ */
+void ofApp::bgSubtraction() {
+    
+    if(vidGrabber.isFrameNew()){
+        absdiff(prevDiffImg, vidGrabber, diffImg);
+        diffImg.update();
+        
+        copy(vidGrabber, prevDiffImg);
+        
+        diffMean = mean(toCv(diffImg));
+        diffMean *= Scalar(50);
+    };
+    
+    
+    myContourFinder.setThreshold(coutourThresholded);
+    myContourFinder.setMinArea(contourMinArea);
+    myContourFinder.setFindHoles(true);
+    myContourFinder.setSortBySize(true);
+    
+    myContourFinder.findContours(diffImg);
+    
+    diffColorImg.setFromPixels(diffImg.getPixels(), diffImg.getWidth(), diffImg.getHeight());
+    diffGrayImg = diffColorImg;
+    
+    diffGrayImg.draw(camWidth, 0);
+    
+    //draw
+    ofTranslate(camWidth, 0);
+    myContourFinder.draw();
+    
+    int numPerticle = 1;
+    
+    for (int i = 0; i < numPerticle; i++){
+        if(myContourFinder.size() <= 0) { // or動きが少ない時
+            break;
+        }
+        cv::Point2f drawpoint = myContourFinder.getCenter(i);
+        ofSetColor(255, 0, 0);
+        ofCircle(drawpoint.x, drawpoint.y, 10);
+    }
+    
+    ofColor(255);
+    ofTranslate(-camWidth, 0);
+    
+}
+/**
+ * エフェクトかけるよ
+ *
+ */
+//void ofApp::drawEffect() {
+//    
+//    
+//}
 
 void ofApp::presResetbutton(){
     for(int i=0; i<COLNUM; i++){
@@ -498,8 +609,8 @@ void ofApp::presResetbutton(){
                 capRegular[i][j].clear();
             }
         }
-        savemax = saveSld;
-        capmax = capSld;
+        savemax         = saveSld;
+        capmax          = capSld;
         capCount        = 0;
         capNum          = 0;
         eraseId         = 0;
@@ -517,5 +628,159 @@ void ofApp::presResetbutton(){
 }
 
 void ofApp::drawFlowCap(){
-    capFlow[capNum*capmax + capCount].draw(camWidth,camHeight);
+    
+    int flame = capNum*capmax + capCount;
+    int flameMax = savemax*capmax;
+    
+    ofSetColor(255);
+    
+    
+    
+    for(int i=0; i<flameMax; i++){
+        if(flowValue[i] > 8){
+            if(capFlow[i].bAllocated()){
+                ofSetColor(255,255,255,ofMap(i, 0, flameMax, 0, 255));
+                capFlow[i].draw(0,0);
+            }
+        }
+    }
+    
+    
+    
+//    for(int i=0; i<flameMax; i++){
+//        if(flowDrawflg[i]){flowDrawflg[i] = false;}
+//        
+//        if(flowWaitFlame <= 0 || (flowWaitFlame > 10 && flowValue[i] > 5)){
+//            //描画したら待ち時間増加
+//            //動きの小さい時に待ち時間多く、大きい時に待ち時間少なく
+//            if(abs(flowValue[i]) > 5){
+//                flowWaitFlame+= 5;
+//            }else if(abs(flowValue[i]) > 3){
+//                flowWaitFlame += 10;
+//            }else if(abs(flowValue[i]) >= 0){
+//                flowWaitFlame += 20;
+//            }
+//            
+//            flowDrawflg[i] = true;
+//        }
+//        ofDrawBitmapStringHighlight("waitFlame" + ofToString(flowWaitFlame), 0, camHeight+20);
+//        flowWaitFlame--;
+//    }
+//    
+//    
+//    for(int k=0; k<flameMax; k++){
+//    
+//        if(flowDrawflg[k]){
+//            if(capFlow[k].bAllocated()){
+//                    capFlow[k].draw(0,camHeight);
+//                    //cout << flame+k <<endl;
+//               }
+//        }
+//    }
+    
+    
+//    if(flameMax - flowValue[flameMax-1] >= 0){
+//        for (int i = flameMax - flowValue[flameMax-1]; i <= flameMax; i++) {
+//            if(capFlow[i-1].bAllocated()){
+//                capFlow[i-1].draw(0,camHeight);
+//            }
+//        }
+//        cout << flameMax - flowValue[flameMax-1] << endl;
+//    }
+//    
+    for(int i=0; i<flameMax; i++){
+    
+    
+    
+    
+//        if(i + capCount >= flameMax){
+//            capFlow[].draw(camWidth,camHeight);
+//            i+=3;
+//        }else {
+//            capFlow[i +capCount].draw(camWidth,camHeight);
+//            i+=3;
+//        }
+
+//        if(flowValue[i] > 7){
+//            i+=1;
+//        }else if(flowValue[i] > 5){
+//            i+=3;
+//        }else if (flowValue[i] > 3){
+//            i += 5;
+//        }else if(flowValue[i] > 1){
+//            i += 8;
+//        }else{i += 10;}
+
+//        if(capFlow[i].bAllocated()){
+//            capFlow[i].draw(0,camHeight);
+//        }
+//
+//        i += 15 - flowValue[flameMax-1];
+//    
+
+    
+//        if(abs(flowValue[i]) > 7){
+//            if(i + capCount >= flameMax){
+//                capFlow[i+capCount-flameMax].draw(camWidth,camHeight);
+//                i+=3;
+//            }else {
+//                capFlow[i +capCount].draw(camWidth,camHeight);
+//                i+=3;
+//            }
+//        }
+//        
+//        else if(abs(flowValue[i]) > 5){
+//            if(i + capCount >= flameMax){
+//                capFlow[i+capCount-flameMax].draw(camWidth,camHeight);
+//                i+=5;
+//            }else {
+//                capFlow[i +capCount].draw(camWidth,camHeight);
+//                i+=5;
+//            }
+//        }
+//        
+//        else if(abs(flowValue[i]) > 3){
+//            if(i + capCount >= flameMax){
+//                capFlow[i+capCount-flameMax].draw(camWidth,camHeight);
+//                i+=10;
+//            }else {
+//                capFlow[i +capCount].draw(camWidth,camHeight);
+//                i+=10;
+//            }
+//        }
+//        
+//        else if(abs(flowValue[i]) >= 0){
+//            if(i + capCount >= flameMax){
+//                capFlow[i+capCount-flameMax].draw(camWidth,camHeight);
+//                i+=20;
+//            }else {
+//                capFlow[i +capCount].draw(camWidth,camHeight);
+//                i+=20;
+//            }
+//        }
+    }
+}
+
+
+void ofApp::drawEffect(){
+
+
+    if(flowAve < 5){
+        changeCol = 0;
+    }else if(flowAve < 15){
+        changeCol = 2;
+    }else if (flowAve < 25){
+        changeCol = 3;
+    }else{
+        changeCol = 1;
+    }
+    ofSetColor(0);
+    for(int i=0; i<100; i++){
+    ofSetColor(particleCol[i]);
+        particle[i].x += particleVec[i].x;
+        particle[i].y += particleVec[i].y;
+        if(particle[i].x > camWidth || particle[i].x < 0){particle[i].x = camWidth/2;particle[i].y = camHeight/2;}
+        if(particle[i].y > camHeight || particle[i].y < 0){particle[i].y = camHeight/2;particle[i].x = camWidth/2;}
+        ofCircle(particle[i].x, particle[i].y,particle[i].z);
+    }
 }
