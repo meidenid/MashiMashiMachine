@@ -40,7 +40,7 @@ void ofApp::setup() {
         particleVec[i].x = ofRandom(-20, 20);
         particleVec[i].y = ofRandom(-20, 20);
         
-        particleCol[i].set(ofRandom(250), ofRandom(250), ofRandom(250));
+        particleCol[i].set(ofRandom(250), ofRandom(250), ofRandom(200,250));
         cout << particleVec[0].x << endl;
     }
 
@@ -230,12 +230,12 @@ void ofApp::draw() {
             flowValue[i] = flowValue[i+1];
         }
     }
-
-    drawEffect();
+    
+    //drawEffect(); //状態毒
     if(mode){drawCap();}
     if(!mode){drawLocus();}
     drawCol();
-    drawSub();
+    //drawSub();
     if(drawpast){drawPast();}
     if(drawpastBack){drawPastBack();}
     if(reguner){drawRegular();}
@@ -277,8 +277,9 @@ void ofApp::draw() {
     
     //ofDisableAlphaBlending();
     bgSubtraction();
-    drawEffect();
+    //drawEffect();
     
+    ofSetColor(255);
     curFlow -> draw(0,0,camWidth,camHeight);
     gui.setPosition(camWidth * 2 + 10, 10);
     cv.setPosition(camWidth * 2 + 10, camHeight);
@@ -570,22 +571,30 @@ void ofApp::bgSubtraction() {
     diffGrayImg.draw(camWidth, 0);
     
     //draw
-    ofTranslate(camWidth, 0);
+    //ofTranslate(camWidth, 0);
     myContourFinder.draw();
     
-    int numPerticle = 1;
+    int numPerticle = 3;
     
     for (int i = 0; i < numPerticle; i++){
-        if(myContourFinder.size() <= 0) { // or動きが少ない時
+        if(myContourFinder.size() <= 0 || flowAve < 2) {
             break;
         }
         cv::Point2f drawpoint = myContourFinder.getCenter(i);
         ofSetColor(255, 0, 0);
         ofCircle(drawpoint.x, drawpoint.y, 10);
+        for(int i=0; i<100; i++){
+            ofSetColor(particleCol[i]);
+            particle[i].x += particleVec[i].x;
+            particle[i].y += particleVec[i].y;
+            if(particle[i].x > camWidth || particle[i].x < 0){particle[i].y = drawpoint.y;particle[i].x = drawpoint.x;}
+            if(particle[i].y > camHeight || particle[i].y < 0){particle[i].y = drawpoint.y;particle[i].x = drawpoint.x;}
+            ofCircle(particle[i].x, particle[i].y,particle[i].z);
+        }
     }
     
     ofColor(255);
-    ofTranslate(-camWidth, 0);
+    //ofTranslate(-camWidth, 0);
     
 }
 /**
@@ -637,10 +646,11 @@ void ofApp::drawFlowCap(){
     
     
     for(int i=0; i<flameMax; i++){
-        if(flowValue[i] > 8){
+        if(flowValue[i] > 12){
             if(capFlow[i].bAllocated()){
                 ofSetColor(255,255,255,ofMap(i, 0, flameMax, 0, 255));
                 capFlow[i].draw(0,0);
+                i++;
             }
         }
     }
@@ -762,25 +772,16 @@ void ofApp::drawFlowCap(){
 }
 
 
-void ofApp::drawEffect(){
-
-
-    if(flowAve < 5){
-        changeCol = 0;
-    }else if(flowAve < 15){
-        changeCol = 2;
-    }else if (flowAve < 25){
-        changeCol = 3;
-    }else{
-        changeCol = 1;
-    }
-    ofSetColor(0);
-    for(int i=0; i<100; i++){
-    ofSetColor(particleCol[i]);
-        particle[i].x += particleVec[i].x;
-        particle[i].y += particleVec[i].y;
-        if(particle[i].x > camWidth || particle[i].x < 0){particle[i].x = camWidth/2;particle[i].y = camHeight/2;}
-        if(particle[i].y > camHeight || particle[i].y < 0){particle[i].y = camHeight/2;particle[i].x = camWidth/2;}
-        ofCircle(particle[i].x, particle[i].y,particle[i].z);
-    }
-}
+//void ofApp::drawEffect(){
+//
+//    //状態毒
+//    if(flowAve < 5){
+//        changeCol = 0;
+//    }else if(flowAve < 15){
+//        changeCol = 2;
+//    }else if (flowAve < 25){
+//        changeCol = 3;
+//    }else{
+//        changeCol = 1;
+//    }
+//}
