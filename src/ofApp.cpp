@@ -32,6 +32,18 @@ void ofApp::setup() {
         eraseColor[i] = ofColor(0,100+i*5,0);
         drawColor[i] = ofColor(0,0,0);
     }
+    for(int i=0; i<100; i++){
+        particle[i].x = camWidth/2;
+        particle[i].y = camHeight/2;
+        particle[i].z = ofRandom(1,10);
+        
+        particleVec[i].x = ofRandom(-20, 20);
+        particleVec[i].y = ofRandom(-20, 20);
+        
+        particleCol[i].set(ofRandom(250), ofRandom(250), ofRandom(250));
+        cout << particleVec[0].x << endl;
+    }
+
     capNum = 0;
     // cap.allocate(camWidth, camHeight, OF_IMAGE_COLOR_ALPHA);
     
@@ -84,6 +96,7 @@ void ofApp::setup() {
     //http://www.slideshare.net/tado/media-art-ii-2013-6openframeworks-addon-2-ofxopencv-ofxcv
     
     isCapFlowFilled = true;
+    
 }
 
 //--------------------------------------------------------------
@@ -92,7 +105,7 @@ void ofApp::update() {
     threshold = threSld;
     
     //3秒ごとにregularNumの一部にcapを代入
-    if(ofGetSeconds() % 2 == 0 && regularFlg){
+    if(ofGetSeconds() % 3 == 0 && regularFlg){
         if(capNum == 0){
             for(int i=0; i<capmax; i++){
                 capRegular[regularNum][i] = cap[savemax-1][i];
@@ -110,7 +123,6 @@ void ofApp::update() {
         
         for(int i=0; i<regularSld; i++){
             regularRandNum[i] = ofRandom(REGMAX);
-            //cout << i + regularRandNum[i] << endl;
         }
     }
     if(ofGetSeconds() %3 == 1){regularFlg = true;}
@@ -170,7 +182,7 @@ void ofApp::draw() {
     }
     pyrAve.x /= pyrMotion.size() ;
     pyrAve.y /= pyrMotion.size() ;
-    flowAve = pyrAve.x + pyrAve.y;
+    flowAve = abs(pyrAve.x) + abs(pyrAve.y);
     
     ofEnableAlphaBlending();
     //最初初期化してないの描画してるかも
@@ -203,15 +215,16 @@ void ofApp::draw() {
         }
     }
 
-    
+    drawEffect();
     if(mode){drawCap();}
     if(!mode){drawLocus();}
     drawCol();
-    //drawSub();
+    drawSub();
     if(drawpast){drawPast();}
     if(drawpastBack){drawPastBack();}
     if(reguner){drawRegular();}
     drawRandom();
+    
     drawFlowCap();
     ofSetColor(colSld);
     cap[capNum][capCount].draw(0,0);
@@ -501,7 +514,7 @@ void ofApp::drawRandomCap(){
 }
 
 void ofApp::drawRegular(){
-    
+    ofSetColor(255);
     for(int i=0; i<regularSld; i++){
         if(capRegular[regularRandNum[i]][capCount].bAllocated()){
             capRegular[regularRandNum[i]][capCount].draw(0,camHeight);
@@ -670,5 +683,29 @@ void ofApp::drawFlowCap(){
 //                i+=20;
 //            }
 //        }
+    }
+}
+
+
+void ofApp::drawEffect(){
+
+
+    if(flowAve < 5){
+        changeCol = 0;
+    }else if(flowAve < 15){
+        changeCol = 2;
+    }else if (flowAve < 25){
+        changeCol = 3;
+    }else{
+        changeCol = 1;
+    }
+    ofSetColor(0);
+    for(int i=0; i<100; i++){
+    ofSetColor(particleCol[i]);
+        particle[i].x += particleVec[i].x;
+        particle[i].y += particleVec[i].y;
+        if(particle[i].x > camWidth || particle[i].x < 0){particle[i].x = camWidth/2;particle[i].y = camHeight/2;}
+        if(particle[i].y > camHeight || particle[i].y < 0){particle[i].y = camHeight/2;particle[i].x = camWidth/2;}
+        ofCircle(particle[i].x, particle[i].y,particle[i].z);
     }
 }

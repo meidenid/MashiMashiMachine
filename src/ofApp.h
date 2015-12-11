@@ -3,6 +3,7 @@
 #include "ofMain.h"
 #include "ofxGui.h"
 #include "ofxCv.h"
+#include "ofxOpenCv.h"
 
 using namespace ofxCv;
 using namespace cv;
@@ -54,6 +55,8 @@ public:
     
     void drawFlowCap();
     
+    void drawEffect();
+    
     
     ofImage  img;
     
@@ -62,7 +65,7 @@ public:
     static const int CAPMAX = 30;
     static const int SAVEMAX = 20;
     static const int COLNUM = 10;
-    static const int REGMAX = 50;
+    static const int REGMAX = 30;
     ofVideoGrabber  vidGrabber;
     ofTexture       videoTexture;
     int             camWidth;
@@ -118,7 +121,10 @@ public:
     ofxToggle       drawpast;
     ofxToggle       drawpastBack;
     ofxToggle       mode;
-    
+    ofPoint         particle[100];
+    ofColor         particleCol[100];
+    ofPoint         particleVec[100];
+    ofVec2f         pyrAve;
     
     ofxPanel        cv;
     ofxFloatSlider  pyrScale;
@@ -144,4 +150,6 @@ public:
     ofxCv::FlowFarneback farneback;
     ofxCv::FlowPyrLK pyrLk;
     ofxCv::Flow* curFlow;
+    
+    
 };
