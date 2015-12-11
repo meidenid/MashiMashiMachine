@@ -61,8 +61,6 @@ public:
     //背景差分
     void bgSubtraction();
     
-    void drawEffect();
-    
     
     ofImage  img;
     
@@ -173,7 +171,4 @@ public:
     ofxCv::FlowFarneback farneback;
     ofxCv::FlowPyrLK pyrLk;
     ofxCv::Flow* curFlow;
-    
-    ofVec2f flowAve;
-    ofVec2f pyrAve;
 };

@@ -592,10 +592,10 @@ void ofApp::bgSubtraction() {
  * エフェクトかけるよ
  *
  */
-void ofApp::drawEffect() {
-    
-    
-}
+//void ofApp::drawEffect() {
+//    
+//    
+//}
 
 void ofApp::presResetbutton(){
     for(int i=0; i<COLNUM; i++){
