@@ -3,6 +3,7 @@
 #include "ofMain.h"
 #include "ofxGui.h"
 #include "ofxCv.h"
+#include "ofxOpenCv.h"
 
 using namespace ofxCv;
 using namespace cv;
@@ -53,6 +54,12 @@ public:
     void presResetbutton();
     
     void drawFlowCap();
+
+    //えふぇくつ
+    void drawEffect();
+
+    //背景差分
+    void bgSubtraction();
     
     
     ofImage  img;
@@ -98,6 +105,20 @@ public:
     float           speedScale;
     ofPoint         randPos;
     
+    //はいけいさぶん
+    bool            bLearnBakground;
+    ofImage         bgImage;
+    ofImage         prevDiffImg;
+    ofImage         diffImg;
+    ofxCvGrayscaleImage diffGrayImg;
+    ofxCvColorImage     diffColorImg;
+    cv::Scalar      diffMean;
+    
+    //Effect
+    ofxCv::ContourFinder myContourFinder;
+    ofxCvContourFinder myCountourFinder2;
+
+    
     ofxPanel        gui;
     ofxIntSlider    capSld;
     ofxIntSlider    saveSld;
@@ -124,12 +145,15 @@ public:
     ofxFloatSlider  polySigma;
     ofxIntSlider    winSize;
     ofxIntSlider    maxLevel;
+    ofxIntSlider    coutourThresholded;
+    ofxIntSlider    contourMinArea;
     ofxFloatSlider  maxFeatures;
     ofxFloatSlider  qualityLevel;
     ofxFloatSlider  minDistance;
     
     ofxToggle       OPTFLOW;
     ofxToggle       useFarneback;
+    
     
     
     ofxCv::ContourFinder contourFinder;
@@ -139,4 +163,7 @@ public:
     ofxCv::FlowFarneback farneback;
     ofxCv::FlowPyrLK pyrLk;
     ofxCv::Flow* curFlow;
+    
+    ofVec2f flowAve;
+    ofVec2f pyrAve;
 };
